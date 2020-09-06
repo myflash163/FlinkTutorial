@@ -1,13 +1,15 @@
 package com.atguigu.apitest
 
 import org.apache.flink.api.common.functions.RichFlatMapFunction
+import org.apache.flink.api.common.restartstrategy.RestartStrategies
 import org.apache.flink.api.common.state.{ValueState, ValueStateDescriptor}
 import org.apache.flink.configuration.Configuration
-import org.apache.flink.streaming.api.TimeCharacteristic
+import org.apache.flink.streaming.api.environment.CheckpointConfig.ExternalizedCheckpointCleanup
 import org.apache.flink.streaming.api.functions.KeyedProcessFunction
 import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrdernessTimestampExtractor
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.streaming.api.windowing.time.Time
+import org.apache.flink.streaming.api.{CheckpointingMode, TimeCharacteristic}
 import org.apache.flink.util.Collector
 
 object ProcessFunctionTest {
@@ -16,8 +18,18 @@ object ProcessFunctionTest {
     env.setParallelism(1)
     env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime)
     //设置状态后端
-    //env.setStateBackend(new RocksDBStateBackend(""))
-    env.enableCheckpointing(1000)
+    //env.setStateBackend(new RocksDBStateBackend("path"))
+    //env.setStateBackend(new FsStateBackend("file:///tmp/checkpoints"))
+    env.enableCheckpointing(60000)
+    env.getCheckpointConfig.setCheckpointingMode(CheckpointingMode.AT_LEAST_ONCE)
+    env.getCheckpointConfig.setCheckpointTimeout(100000)
+    env.getCheckpointConfig.setFailOnCheckpointingErrors(false)
+    //env.getCheckpointConfig.setMaxConcurrentCheckpoints(2)
+    env.getCheckpointConfig.setMinPauseBetweenCheckpoints(100)
+    env.getCheckpointConfig.enableExternalizedCheckpoints(ExternalizedCheckpointCleanup.DELETE_ON_CANCELLATION)
+    //配置重启策略
+    //env.setRestartStrategy(RestartStrategies.fixedDelayRestart(3, 500))
+    env.setRestartStrategy(RestartStrategies.failureRateRestart(3, org.apache.flink.api.common.time.Time.seconds(3000), org.apache.flink.api.common.time.Time.seconds(10)))
     //nc -lk 7777
     val stream = env.socketTextStream("localhost", 7777)
 
